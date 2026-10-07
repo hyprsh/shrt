@@ -1,6 +1,6 @@
 # shrt design
 
-Status: in progress (being worked out with Andy, one decision at a time).
+Status: agreed with Andy on 2026-10-07.
 
 ## Goal
 
@@ -39,6 +39,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 18 | The API, redirect and health endpoints are as described under [API](#api). | |
 | 19 | navi learns shrt through a tracked skill `skills/shrt/` in hyprsh/navi (`SKILL.md` plus a script for create, list and delete, calling `https://shrt.internal.hypr.sh` with `$NAVI_SECRET_SHRT_TOKEN`). It is a `ready-for-agent` ticket in hyprsh/navi, worked by Autopilot there, blocked until shrt runs. | |
 | 20 | The navi skill is for everyone in the household (no `navi-roles`), not Owner-only. | |
+| 21 | shrt's `flake.nix` is written and verified in the attended nixos-config work (decision 16), with `./scripts/rebuild.sh server build`. Autopilot's Check in shrt covers only the Go code, since the Mac it runs on has no Nix. A dependency update that breaks `vendorHash` shows up at the next nixos-config build. | |
 
 ## API
 
@@ -70,6 +71,4 @@ file come from environment variables, set by nixos-config.
 ## Out of scope
 
 - Backups of `/persist` on `server`. Today it is a ZFS mirror (`data/persist`) with no snapshots or off-host backup in nixos-config. That covers a failed disk, not a deletion or a lost pool. To be solved for every service in nixos-config (e.g. sanoid snapshots), tracked in [hyprsh/nixos-config#1](https://github.com/hyprsh/nixos-config/issues/1).
-
-## Open questions
 
