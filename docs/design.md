@@ -1,6 +1,6 @@
 # shrt design
 
-Status: every question decided; waiting for Andy to confirm the whole design.
+Status: agreed with Andy on 2026-10-07.
 
 ## Goal
 
