@@ -38,6 +38,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 17 | On the public `hypr.sh` vhost only `GET /x/<code>` reaches shrt; nginx answers every other path, `/` and `/x/` included, with `404`, and redirects `http://` to `https://`. | [0003](adr/0003-public-redirect-lan-only-api.md) |
 | 18 | The API, redirect and health endpoints are as described under [API](#api). | |
 | 19 | navi learns shrt through a tracked skill `skills/shrt/` in hyprsh/navi (`SKILL.md` plus a script for create, list and delete, calling `https://shrt.internal.hypr.sh` with `$NAVI_SECRET_SHRT_TOKEN`). It is a `ready-for-agent` ticket in hyprsh/navi, worked by Autopilot there, blocked until shrt runs. | |
+| 20 | The navi skill is for everyone in the household (no `navi-roles`), not Owner-only. | |
 
 ## API
 
