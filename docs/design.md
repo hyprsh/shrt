@@ -65,8 +65,9 @@ shrt also serves, without a token:
 - `GET /x/{code}`: `302` to the link's URL, `404` if unknown.
 - `GET /healthz`: `200` when the database is reachable, for monitoring.
 
-The listen address, port, base URL for `short_url` and the path of the token
-file come from environment variables, set by nixos-config.
+The listen address, port, base URL for `short_url`, the path of the token
+file and the database path come from environment variables, set by
+nixos-config; the README lists them.
 
 ## Out of scope
 
