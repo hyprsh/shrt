@@ -27,6 +27,11 @@ var migrations = []string{
 		url        TEXT NOT NULL,
 		created_at TEXT NOT NULL
 	)`,
+	// generated tells a code shrt drew apart from a chosen name, which can
+	// look the same (decision 10). Every link until now was generated.
+	`ALTER TABLE links ADD COLUMN generated INTEGER NOT NULL DEFAULT 0;
+	UPDATE links SET generated = 1;
+	CREATE INDEX links_generated_url ON links (url) WHERE generated`,
 }
 
 // OpenStore opens the SQLite file at path, creating it if need be, and
@@ -82,12 +87,35 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_schema`).Scan(&n)
 }
 
-// Insert stores link unless its code is taken, and reports whether it did.
-// An existing link is never overwritten.
-func (s *Store) Insert(ctx context.Context, link Link) (inserted bool, err error) {
-	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO links (code, url, created_at) VALUES (?, ?, ?) ON CONFLICT (code) DO NOTHING`,
-		link.Code, link.URL, link.CreatedAt.UTC().Format(time.RFC3339))
+// InsertNamed stores link under its chosen name unless the name is taken, and
+// reports whether it did. An existing link is never overwritten.
+func (s *Store) InsertNamed(ctx context.Context, link Link) (inserted bool, err error) {
+	return insertedOne(s.db.ExecContext(ctx,
+		`INSERT INTO links (code, url, created_at, generated) VALUES (?, ?, ?, 0)
+		ON CONFLICT (code) DO NOTHING`,
+		link.Code, link.URL, formatCreatedAt(link.CreatedAt)))
+}
+
+// InsertGenerated stores link under the code shrt generated for it, and
+// reports whether it did. It doesn't when the code is taken or when the URL
+// already has a generated code, which GeneratedFor then finds. Checking and
+// inserting in one statement keeps two calls for the same URL from both
+// getting a code.
+func (s *Store) InsertGenerated(ctx context.Context, link Link) (inserted bool, err error) {
+	// SQLite needs the WHERE to tell ON CONFLICT from a join's ON.
+	return insertedOne(s.db.ExecContext(ctx,
+		`INSERT INTO links (code, url, created_at, generated)
+		SELECT ?, ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM links WHERE url = ? AND generated)
+		ON CONFLICT (code) DO NOTHING`,
+		link.Code, link.URL, formatCreatedAt(link.CreatedAt), link.URL))
+}
+
+// formatCreatedAt is how created_at is stored.
+func formatCreatedAt(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
+
+func insertedOne(res sql.Result, err error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
@@ -97,10 +125,23 @@ func (s *Store) Insert(ctx context.Context, link Link) (inserted bool, err error
 
 // Get returns the link with code, or ErrNotFound. Codes are case-sensitive.
 func (s *Store) Get(ctx context.Context, code string) (Link, error) {
-	link := Link{Code: code}
+	return scanLink(s.db.QueryRowContext(ctx, `SELECT code, url, created_at FROM links WHERE code = ?`, code))
+}
+
+// GeneratedFor returns the link with the code shrt generated for url, or
+// ErrNotFound when url has none; links under a chosen name don't count.
+// URLs match exactly. Should a URL have several generated codes, as it can
+// from before shrt kept to one, the oldest wins.
+func (s *Store) GeneratedFor(ctx context.Context, url string) (Link, error) {
+	return scanLink(s.db.QueryRowContext(ctx,
+		`SELECT code, url, created_at FROM links WHERE url = ? AND generated
+		ORDER BY created_at, rowid LIMIT 1`, url))
+}
+
+func scanLink(row *sql.Row) (Link, error) {
+	var link Link
 	var createdAt string
-	err := s.db.QueryRowContext(ctx, `SELECT url, created_at FROM links WHERE code = ?`, code).
-		Scan(&link.URL, &createdAt)
+	err := row.Scan(&link.Code, &link.URL, &createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Link{}, ErrNotFound
 	}
@@ -111,7 +152,7 @@ func (s *Store) Get(ctx context.Context, code string) (Link, error) {
 	return link, err
 }
 
-// parseCreatedAt reads the RFC3339 text that Insert stores.
+// parseCreatedAt reads the RFC3339 text that formatCreatedAt writes.
 func parseCreatedAt(text string) (time.Time, error) {
 	return time.Parse(time.RFC3339, text)
 }

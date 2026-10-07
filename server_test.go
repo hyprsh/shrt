@@ -69,9 +69,23 @@ func do(t *testing.T, method, url, auth, body string) *http.Response {
 	return resp
 }
 
+func post(t *testing.T, ts *httptest.Server, body string) *http.Response {
+	t.Helper()
+	return do(t, "POST", ts.URL+"/api/links", "Bearer "+testToken, body)
+}
+
 func create(t *testing.T, ts *httptest.Server, url string) Link {
 	t.Helper()
-	resp := do(t, "POST", ts.URL+"/api/links", "Bearer "+testToken, `{"url": "`+url+`"}`)
+	return wantCreated(t, post(t, ts, `{"url": "`+url+`"}`))
+}
+
+func createNamed(t *testing.T, ts *httptest.Server, url, name string) Link {
+	t.Helper()
+	return wantCreated(t, post(t, ts, `{"url": "`+url+`", "name": "`+name+`"}`))
+}
+
+func wantCreated(t *testing.T, resp *http.Response) Link {
+	t.Helper()
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("POST /api/links: status %d, want 201", resp.StatusCode)
 	}
@@ -190,7 +204,7 @@ func TestCreateLinkRejectsBadRequests(t *testing.T) {
 		"javascript":    `{"url": "javascript:alert(1)"}`,
 		"relative":      `{"url": "/x/abc"}`,
 		"no host":       `{"url": "https:///path"}`,
-		"unknown field": `{"url": "https://example.com", "name": "ferien"}`,
+		"unknown field": `{"url": "https://example.com", "expires": "2027-01-01"}`,
 		"trailing data": `{"url": "https://example.com"} {}`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -198,6 +212,195 @@ func TestCreateLinkRejectsBadRequests(t *testing.T) {
 			wantError(t, resp, http.StatusBadRequest)
 		})
 	}
+}
+
+func TestCreateLinkWithName(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+
+	for _, name := range []string{"ferien", "ferien-2026", "42", "-", strings.Repeat("a", maxNameLength)} {
+		link := createNamed(t, ts, "https://example.com/"+name, name)
+		want := Link{
+			Code:      name,
+			ShortURL:  "https://hypr.sh/x/" + name,
+			URL:       "https://example.com/" + name,
+			CreatedAt: testNow,
+		}
+		if link != want {
+			t.Errorf("link %+v, want %+v", link, want)
+		}
+		resp := do(t, "GET", ts.URL+"/x/"+name, "", "")
+		if got := resp.Header.Get("Location"); resp.StatusCode != http.StatusFound || got != want.URL {
+			t.Errorf("/x/%s: status %d, Location %q; want 302 to %q", name, resp.StatusCode, got, want.URL)
+		}
+	}
+}
+
+func TestCreateLinkRejectsBadNames(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+
+	for name, value := range map[string]string{
+		"empty":       `""`,
+		"upper case":  `"Ferien"`,
+		"space":       `"a b"`,
+		"underscore":  `"a_b"`,
+		"dot":         `"a.b"`,
+		"slash":       `"a/b"`,
+		"umlaut":      `"ferien-über"`,
+		"too long":    `"` + strings.Repeat("a", maxNameLength+1) + `"`,
+		"not text":    `42`,
+		"percent":     `"a%20b"`,
+		"query":       `"a?b"`,
+		"trailing nl": `"ferien\n"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := post(t, ts, `{"url": "https://example.com", "name": `+value+`}`)
+			wantError(t, resp, http.StatusBadRequest)
+		})
+	}
+}
+
+func TestCreateLinkWithoutNameAcceptsNull(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	resp := post(t, ts, `{"url": "https://example.com", "name": null}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("status %d, want 201", resp.StatusCode)
+	}
+}
+
+func TestCreateLinkNameTaken(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	createNamed(t, ts, "https://example.com/first", "ferien")
+	srv.newCode = func() string { return "abcdef" }
+	create(t, ts, "https://example.com/generated")
+
+	for _, name := range []string{"ferien", "abcdef"} {
+		resp := post(t, ts, `{"url": "https://example.com/second", "name": "`+name+`"}`)
+		wantError(t, resp, http.StatusConflict)
+	}
+	// The same URL under a taken name is still a conflict.
+	resp := post(t, ts, `{"url": "https://example.com/first", "name": "ferien"}`)
+	wantError(t, resp, http.StatusConflict)
+
+	// Neither link is overwritten.
+	for code, want := range map[string]string{
+		"ferien": "https://example.com/first",
+		"abcdef": "https://example.com/generated",
+	} {
+		resp := do(t, "GET", ts.URL+"/x/"+code, "", "")
+		if got := resp.Header.Get("Location"); got != want {
+			t.Errorf("/x/%s: Location %q, want %q", code, got, want)
+		}
+	}
+}
+
+func TestCreateLinkReturnsExistingGeneratedCode(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	first := create(t, ts, "https://example.com/page")
+
+	srv.now = func() time.Time { return testNow.Add(time.Hour) }
+	resp := post(t, ts, `{"url": "https://example.com/page"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	var again Link
+	decode(t, resp, &again)
+	if again != first {
+		t.Errorf("link %+v, want the first one %+v", again, first)
+	}
+
+	// The match is exact: a different URL gets a code of its own.
+	other := create(t, ts, "https://example.com/page/")
+	if other.Code == first.Code {
+		t.Errorf("https://example.com/page/ got %q too", other.Code)
+	}
+}
+
+func TestCreateLinkIgnoresChosenNamesForSameURL(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	const url = "https://example.com/page"
+	createNamed(t, ts, url, "ferien")
+
+	// A named link doesn't count as the URL's generated code...
+	generated := create(t, ts, url)
+	if generated.Code == "ferien" {
+		t.Fatalf("got the chosen name back")
+	}
+	// ...and a name always makes its own link, even with a generated code.
+	createNamed(t, ts, url, "urlaub")
+
+	resp := post(t, ts, `{"url": "`+url+`"}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	var again Link
+	decode(t, resp, &again)
+	if again.Code != generated.Code {
+		t.Errorf("code %q, want %q", again.Code, generated.Code)
+	}
+}
+
+func TestCreateLinkURLLength(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	prefix := "https://example.com/"
+
+	longest := prefix + strings.Repeat("a", maxURLLength-len(prefix))
+	create(t, ts, longest)
+
+	resp := post(t, ts, `{"url": "`+longest+`b"}`)
+	wantError(t, resp, http.StatusBadRequest)
+
+	// The limit counts characters, not bytes.
+	create(t, ts, prefix+strings.Repeat("ü", maxURLLength-len(prefix)))
+}
+
+func TestCreateLinkRejectsURLsToItself(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+
+	for _, url := range []string{
+		"https://hypr.sh/x/k3P9qa",
+		"http://hypr.sh/x/k3P9qa",
+		"https://HYPR.sh/x/k3P9qa",
+		"https://hypr.sh./x/k3P9qa",
+		"https://hypr.sh:443/x/k3P9qa",
+		"https://user@hypr.sh/x/k3P9qa",
+		"https://hypr.sh/x/k3P9qa?q=1#frag",
+		"https://hypr.sh/x/",
+		"https://hypr.sh/x",
+		"https://hypr.sh//x/k3P9qa",
+		"https://hypr.sh/%78/k3P9qa",
+		"https://hypr.sh/a/../x/k3P9qa",
+		"https://hypr.sh/./x/k3P9qa",
+	} {
+		t.Run(url, func(t *testing.T) {
+			resp := post(t, ts, `{"url": "`+url+`"}`)
+			wantError(t, resp, http.StatusBadRequest)
+		})
+	}
+
+	for _, url := range []string{
+		"https://hypr.sh",
+		"https://hypr.sh/",
+		"https://hypr.sh/xy/k3P9qa",
+		"https://hypr.sh/docs/x/k3P9qa",
+		"https://www.hypr.sh/x/k3P9qa",
+		"https://shrt.internal.hypr.sh/api/links",
+		"https://example.com/x/k3P9qa",
+	} {
+		resp := post(t, ts, `{"url": "`+url+`"}`)
+		if resp.StatusCode != http.StatusCreated {
+			t.Errorf("%s: status %d, want 201", url, resp.StatusCode)
+		}
+	}
+}
+
+func TestCreateLinkRejectsURLsToItselfUnderBasePath(t *testing.T) {
+	store := openTestStore(t, filepath.Join(t.TempDir(), "shrt.db"))
+	ts := httptest.NewServer(NewServer(store, "http://localhost:8080/shrt", testToken))
+	t.Cleanup(ts.Close)
+
+	resp := post(t, ts, `{"url": "http://localhost:8080/shrt/x/k3P9qa"}`)
+	wantError(t, resp, http.StatusBadRequest)
+	create(t, ts, "http://localhost:8080/x/k3P9qa")
 }
 
 func TestCreateLinkRejectsLargeBody(t *testing.T) {
@@ -454,6 +657,41 @@ func TestDeleteLink(t *testing.T) {
 	resp = do(t, "GET", ts.URL+"/x/"+link.Code, "", "")
 	if got := resp.Header.Get("Location"); got != "https://example.com/second" {
 		t.Errorf("Location %q, want https://example.com/second", got)
+	}
+}
+
+func TestDeletedNameCanBeChosenAgain(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	createNamed(t, ts, "https://example.com/first", "ferien")
+
+	resp := do(t, "DELETE", ts.URL+"/api/links/ferien", "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: status %d, want 204", resp.StatusCode)
+	}
+	createNamed(t, ts, "https://example.com/second", "ferien")
+	resp = do(t, "GET", ts.URL+"/x/ferien", "", "")
+	if got := resp.Header.Get("Location"); got != "https://example.com/second" {
+		t.Errorf("Location %q, want https://example.com/second", got)
+	}
+}
+
+func TestDeletedGeneratedCodeIsNotReturnedForItsURL(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	codes := []string{"aaaaaa", "bbbbbb"}
+	srv.newCode = func() string {
+		code := codes[0]
+		codes = codes[1:]
+		return code
+	}
+	const url = "https://example.com/page"
+	create(t, ts, url)
+
+	resp := do(t, "DELETE", ts.URL+"/api/links/aaaaaa", "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: status %d, want 204", resp.StatusCode)
+	}
+	if again := create(t, ts, url); again.Code != "bbbbbb" {
+		t.Errorf("code %q, want a new one, bbbbbb", again.Code)
 	}
 }
 
