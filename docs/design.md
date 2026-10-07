@@ -28,6 +28,11 @@ proxy in `modules/services/proxy-external.nix`.
 | 7 | shrt does no backups of its own. Losing `/persist` loses the links, which is accepted. Snapshots or backups of all of `/persist` belong in nixos-config, as separate work. | |
 | 8 | One API token: 32 random bytes in sops (`secrets/server.yaml`, `shrt/api-token`), read by shrt via systemd `LoadCredential`, held by navi as `SHRT_TOKEN` and sent as `Authorization: Bearer`. shrt compares it in constant time and refuses every API call when no token is configured. Rotation means updating both places. | |
 | 9 | Links live forever, until navi deletes them. No expiry. | |
+| 10 | Shortening a URL that already has a generated code returns that code; a chosen name always makes its own link. | |
+| 11 | Only `http://` and `https://` URLs of at most 2048 characters; URLs pointing back to `hypr.sh/x/` are rejected. | |
+| 12 | The redirect is a `302`, so a deleted link stops redirecting even in browsers that opened it before. Unknown and deleted codes get a plain `404`. | |
+| 13 | A deleted chosen name can be used again. | |
+| 14 | No statistics: no click counter, no record of who opened a link beyond nginx's access log. | |
 
 ## Out of scope
 
@@ -36,4 +41,3 @@ proxy in `modules/services/proxy-external.nix`.
 ## Open questions
 
 - What `hypr.sh/` itself serves (today: nothing, catch-all 404)
-- Duplicates, URL validation, redirect status, stats
