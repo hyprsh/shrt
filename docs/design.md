@@ -35,6 +35,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 14 | No statistics: no click counter, no record of who opened a link beyond nginx's access log. | |
 | 15 | shrt's `flake.nix` exports only the package (`packages.default`, `buildGoModule`). How it runs on `server` lives in nixos-config as `modules/services/shrt.nix`: the systemd unit (`DynamicUser`, `StateDirectory`, `LoadCredential`), the public `hypr.sh` vhost forwarding only `GET /x/`, the internal `shrt.internal.hypr.sh` vhost, the sops secret and persistence. The nixos-config side is a ticket in nixos-config that an agent may work too. | [0002](adr/0002-go-built-by-nix.md) |
 | 16 | The nixos-config ticket is worked in an attended session, not by Autopilot: build with `./scripts/rebuild.sh server flake-check` / `build`, show the diff, push to `main` only on Andy's go. comin deploys `main` to `server` within a minute, so the push is the deploy. | |
+| 17 | On the public `hypr.sh` vhost only `GET /x/<code>` reaches shrt; nginx answers every other path, `/` and `/x/` included, with `404`, and redirects `http://` to `https://`. | [0003](adr/0003-public-redirect-lan-only-api.md) |
 
 ## Out of scope
 
@@ -42,4 +43,3 @@ proxy in `modules/services/proxy-external.nix`.
 
 ## Open questions
 
-- What `hypr.sh/` itself serves (today: nothing, catch-all 404)
