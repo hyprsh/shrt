@@ -33,6 +33,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 12 | The redirect is a `302`, so a deleted link stops redirecting even in browsers that opened it before. Unknown and deleted codes get a plain `404`. | |
 | 13 | A deleted chosen name can be used again. | |
 | 14 | No statistics: no click counter, no record of who opened a link beyond nginx's access log. | |
+| 15 | shrt's `flake.nix` exports only the package (`packages.default`, `buildGoModule`). How it runs on `server` lives in nixos-config as `modules/services/shrt.nix`: the systemd unit (`DynamicUser`, `StateDirectory`, `LoadCredential`), the public `hypr.sh` vhost forwarding only `GET /x/`, the internal `shrt.internal.hypr.sh` vhost, the sops secret and persistence. The nixos-config side is a ticket in nixos-config that an agent may work too. | [0002](adr/0002-go-built-by-nix.md) |
 
 ## Out of scope
 
