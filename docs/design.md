@@ -19,10 +19,12 @@ proxy in `modules/services/proxy-external.nix`.
 
 | # | Decision | ADR |
 |---|----------|-----|
-| 1 | The only way to create links is an HTTP API that navi calls with a token. No web UI, no CLI. The redirect is public. | [0001](adr/0001-api-only-interface.md) |
+| 1 | The only way to create links is an HTTP API that navi calls with a token. No web UI, no CLI. | [0001](adr/0001-api-only-interface.md) |
 
 ## Open questions
 
+- Are links shared outside the household (decides whether the redirect must be public)
+- Where the API is reachable (LAN-only vs. public)
 - Code format (generated vs. chosen, length, alphabet)
 - Stack, storage, auth token handling
 - nginx routing for `hypr.sh/x/`

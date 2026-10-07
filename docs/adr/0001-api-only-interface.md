@@ -13,8 +13,7 @@ for a use that goes through navi anyway.
 
 shrt has one interface for managing links: an HTTP API (create, list,
 delete), authenticated with a bearer token that navi holds. There is no web
-UI and no CLI. The redirect `GET https://hypr.sh/x/<code>` is public, so a
-short link works for anyone it is shared with.
+UI and no CLI.
 
 ## Consequences
 
