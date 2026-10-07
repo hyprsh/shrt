@@ -343,3 +343,162 @@ func TestHealthz(t *testing.T) {
 		t.Errorf("body %q leaks the database error", body)
 	}
 }
+
+func TestListLinksNewestFirst(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	codes := []string{"aaaaaa", "bbbbbb", "cccccc", "dddddd"}
+	// The first link is the oldest; the rest share a second and tie.
+	times := []time.Time{testNow, testNow.Add(time.Minute), testNow.Add(time.Minute), testNow.Add(time.Minute)}
+	var i int
+	srv.newCode = func() string { return codes[i] }
+	srv.now = func() time.Time { return times[i] }
+	for i = range codes {
+		create(t, ts, "https://example.com/"+codes[i])
+	}
+
+	resp := do(t, "GET", ts.URL+"/api/links", "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	var got []map[string]string
+	decode(t, resp, &got)
+	want := []string{"dddddd", "cccccc", "bbbbbb", "aaaaaa"}
+	if len(got) != len(want) {
+		t.Fatalf("%d links, want %d: %v", len(got), len(want), got)
+	}
+	created := map[string]time.Time{"aaaaaa": times[0], "bbbbbb": times[1], "cccccc": times[2], "dddddd": times[3]}
+	for i, code := range want {
+		entry := map[string]string{
+			"code":       code,
+			"short_url":  "https://hypr.sh/x/" + code,
+			"url":        "https://example.com/" + code,
+			"created_at": created[code].Format(time.RFC3339),
+		}
+		for k, v := range entry {
+			if got[i][k] != v {
+				t.Errorf("link %d: %s %q, want %q", i, k, got[i][k], v)
+			}
+		}
+	}
+}
+
+func TestListLinksEmptyIsEmptyList(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	resp := do(t, "GET", ts.URL+"/api/links", "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if strings.TrimSpace(string(body)) != "[]" {
+		t.Errorf("body %q, want []", body)
+	}
+}
+
+func TestShowLink(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	link := create(t, ts, "https://example.com/some/page")
+
+	resp := do(t, "GET", ts.URL+"/api/links/"+link.Code, "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+	var got Link
+	decode(t, resp, &got)
+	if got != link {
+		t.Errorf("got %+v, want %+v", got, link)
+	}
+}
+
+func TestShowLinkUnknownIsNotFound(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	srv.newCode = func() string { return "AbCdEf" }
+	create(t, ts, "https://example.com")
+
+	for _, code := range []string{"nope00", "abcdef"} {
+		resp := do(t, "GET", ts.URL+"/api/links/"+code, "Bearer "+testToken, "")
+		wantError(t, resp, http.StatusNotFound)
+	}
+}
+
+func TestDeleteLink(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	srv.newCode = func() string { return "ferien" }
+	link := create(t, ts, "https://example.com/first")
+
+	resp := do(t, "DELETE", ts.URL+"/api/links/"+link.Code, "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status %d, want 204", resp.StatusCode)
+	}
+	if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
+		t.Errorf("body %q, want none", body)
+	}
+
+	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("redirect after delete: status %d, want 404", resp.StatusCode)
+	}
+	if resp := do(t, "GET", ts.URL+"/api/links/"+link.Code, "Bearer "+testToken, ""); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("show after delete: status %d, want 404", resp.StatusCode)
+	}
+	resp = do(t, "GET", ts.URL+"/api/links", "Bearer "+testToken, "")
+	var links []Link
+	decode(t, resp, &links)
+	if len(links) != 0 {
+		t.Errorf("list after delete: %v, want none", links)
+	}
+
+	// The freed code can be created again, for another URL.
+	again := create(t, ts, "https://example.com/second")
+	if again.Code != link.Code {
+		t.Errorf("code %q, want %q", again.Code, link.Code)
+	}
+	resp = do(t, "GET", ts.URL+"/x/"+link.Code, "", "")
+	if got := resp.Header.Get("Location"); got != "https://example.com/second" {
+		t.Errorf("Location %q, want https://example.com/second", got)
+	}
+}
+
+func TestDeleteLinkKeepsOthers(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	keep := create(t, ts, "https://example.com/keep")
+	drop := create(t, ts, "https://example.com/drop")
+
+	resp := do(t, "DELETE", ts.URL+"/api/links/"+drop.Code, "Bearer "+testToken, "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: status %d, want 204", resp.StatusCode)
+	}
+	resp = do(t, "GET", ts.URL+"/x/"+keep.Code, "", "")
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("status %d, want 302", resp.StatusCode)
+	}
+}
+
+func TestDeleteLinkUnknownIsNotFound(t *testing.T) {
+	ts, srv := newTestServer(t, testToken)
+	srv.newCode = func() string { return "AbCdEf" }
+	link := create(t, ts, "https://example.com")
+
+	for _, code := range []string{"nope00", "abcdef"} {
+		resp := do(t, "DELETE", ts.URL+"/api/links/"+code, "Bearer "+testToken, "")
+		wantError(t, resp, http.StatusNotFound)
+	}
+	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
+		t.Errorf("redirect: status %d, want 302", resp.StatusCode)
+	}
+}
+
+func TestListShowDeleteRefuseMissingOrWrongToken(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	link := create(t, ts, "https://example.com")
+
+	for _, call := range []string{"GET /api/links", "GET /api/links/" + link.Code, "DELETE /api/links/" + link.Code} {
+		method, path, _ := strings.Cut(call, " ")
+		for _, auth := range []string{"", "Bearer not-the-token"} {
+			resp := do(t, method, ts.URL+path, auth, "")
+			wantError(t, resp, http.StatusUnauthorized)
+		}
+	}
+	// The refused delete left the link in place.
+	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
+		t.Errorf("redirect: status %d, want 302", resp.StatusCode)
+	}
+}

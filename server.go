@@ -60,6 +60,9 @@ func NewServer(store *Store, baseURL, token string) *Server {
 
 	api := http.NewServeMux()
 	api.HandleFunc("POST /api/links", s.createLink)
+	api.HandleFunc("GET /api/links", s.listLinks)
+	api.HandleFunc("GET /api/links/{code}", s.showLink)
+	api.HandleFunc("DELETE /api/links/{code}", s.deleteLink)
 	// Answers what no other pattern matches, wrong methods included, so
 	// that API errors stay JSON.
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
@@ -132,8 +135,7 @@ func (s *Server) createLink(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if inserted {
-			link.ShortURL = s.shortURL(link.Code)
-			writeJSON(w, http.StatusCreated, link)
+			writeJSON(w, http.StatusCreated, s.present(link))
 			return
 		}
 	}
@@ -156,8 +158,48 @@ func isAbsoluteHTTPURL(u *url.URL) bool {
 	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
-func (s *Server) shortURL(code string) string {
-	return s.baseURL + "/x/" + code
+func (s *Server) listLinks(w http.ResponseWriter, r *http.Request) {
+	links, err := s.store.List(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	for i := range links {
+		links[i] = s.present(links[i])
+	}
+	writeJSON(w, http.StatusOK, links)
+}
+
+func (s *Server) showLink(w http.ResponseWriter, r *http.Request) {
+	link, err := s.store.Get(r.Context(), r.PathValue("code"))
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "no such link")
+		return
+	}
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, s.present(link))
+}
+
+func (s *Server) deleteLink(w http.ResponseWriter, r *http.Request) {
+	err := s.store.Delete(r.Context(), r.PathValue("code"))
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "no such link")
+		return
+	}
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// present fills in the short_url that the store doesn't keep.
+func (s *Server) present(link Link) Link {
+	link.ShortURL = s.baseURL + "/x/" + link.Code
+	return link
 }
 
 func (s *Server) redirect(w http.ResponseWriter, r *http.Request) {

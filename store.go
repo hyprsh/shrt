@@ -107,6 +107,51 @@ func (s *Store) Get(ctx context.Context, code string) (Link, error) {
 	if err != nil {
 		return Link{}, err
 	}
-	link.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+	link.CreatedAt, err = parseCreatedAt(createdAt)
 	return link, err
+}
+
+// parseCreatedAt reads the RFC3339 text that Insert stores.
+func parseCreatedAt(text string) (time.Time, error) {
+	return time.Parse(time.RFC3339, text)
+}
+
+// List returns every link, newest first. Links made in the same second are
+// ordered by insertion, the later one first.
+func (s *Store) List(ctx context.Context) ([]Link, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT code, url, created_at FROM links ORDER BY created_at DESC, rowid DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	links := []Link{}
+	for rows.Next() {
+		var link Link
+		var createdAt string
+		if err := rows.Scan(&link.Code, &link.URL, &createdAt); err != nil {
+			return nil, err
+		}
+		if link.CreatedAt, err = parseCreatedAt(createdAt); err != nil {
+			return nil, err
+		}
+		links = append(links, link)
+	}
+	return links, rows.Err()
+}
+
+// Delete removes the link with code, or returns ErrNotFound. The code is
+// free to be used again afterwards.
+func (s *Store) Delete(ctx context.Context, code string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM links WHERE code = ?`, code)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
