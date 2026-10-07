@@ -30,7 +30,7 @@ proxy in `modules/services/proxy-external.nix`.
 
 ## Out of scope
 
-- Backups of `/persist` on `server`. Today it is a ZFS mirror (`data/persist`) with no snapshots or off-host backup in nixos-config. That covers a failed disk, not a deletion or a lost pool. To be solved for every service in nixos-config (e.g. sanoid snapshots).
+- Backups of `/persist` on `server`. Today it is a ZFS mirror (`data/persist`) with no snapshots or off-host backup in nixos-config. That covers a failed disk, not a deletion or a lost pool. To be solved for every service in nixos-config (e.g. sanoid snapshots), tracked in [hyprsh/nixos-config#1](https://github.com/hyprsh/nixos-config/issues/1).
 
 ## Open questions
 
