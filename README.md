@@ -9,6 +9,11 @@ The design is in `docs/design.md`.
 go run ./cmd/shrt
 ```
 
+`flake.nix` builds the package (`packages.default`) with `buildGoModule`.
+nixos-config takes it as a flake input and runs it on `server`. When `go.mod`
+or `go.sum` change, update `vendorHash` in `flake.nix`: the next build prints
+the right hash.
+
 shrt is configured only through environment variables:
 
 | Variable | Default | Meaning |
