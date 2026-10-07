@@ -27,6 +27,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 6 | Links live in one SQLite file (`modernc.org/sqlite`, no cgo) in the service's state directory on `server`, persisted under `/persist`. | [0002](adr/0002-go-built-by-nix.md) |
 | 7 | shrt does no backups of its own. Losing `/persist` loses the links, which is accepted. Snapshots or backups of all of `/persist` belong in nixos-config, as separate work. | |
 | 8 | One API token: 32 random bytes in sops (`secrets/server.yaml`, `shrt/api-token`), read by shrt via systemd `LoadCredential`, held by navi as `SHRT_TOKEN` and sent as `Authorization: Bearer`. shrt compares it in constant time and refuses every API call when no token is configured. Rotation means updating both places. | |
+| 9 | Links live forever, until navi deletes them. No expiry. | |
 
 ## Out of scope
 
@@ -35,4 +36,4 @@ proxy in `modules/services/proxy-external.nix`.
 ## Open questions
 
 - What `hypr.sh/` itself serves (today: nothing, catch-all 404)
-- Link lifetime, duplicates, URL validation
+- Duplicates, URL validation, redirect status, stats
