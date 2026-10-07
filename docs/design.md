@@ -36,6 +36,34 @@ proxy in `modules/services/proxy-external.nix`.
 | 15 | shrt's `flake.nix` exports only the package (`packages.default`, `buildGoModule`). How it runs on `server` lives in nixos-config as `modules/services/shrt.nix`: the systemd unit (`DynamicUser`, `StateDirectory`, `LoadCredential`), the public `hypr.sh` vhost forwarding only `GET /x/`, the internal `shrt.internal.hypr.sh` vhost, the sops secret and persistence. The nixos-config side is a ticket in nixos-config that an agent may work too. | [0002](adr/0002-go-built-by-nix.md) |
 | 16 | The nixos-config ticket is worked in an attended session, not by Autopilot: build with `./scripts/rebuild.sh server flake-check` / `build`, show the diff, push to `main` only on Andy's go. comin deploys `main` to `server` within a minute, so the push is the deploy. | |
 | 17 | On the public `hypr.sh` vhost only `GET /x/<code>` reaches shrt; nginx answers every other path, `/` and `/x/` included, with `404`, and redirects `http://` to `https://`. | [0003](adr/0003-public-redirect-lan-only-api.md) |
+| 18 | The API, redirect and health endpoints are as described under [API](#api). | |
+
+## API
+
+Served only at `https://shrt.internal.hypr.sh` (decision 4). Every call needs
+`Authorization: Bearer <token>`; a missing or wrong token gets `401`. JSON in
+and out; errors are `{"error": "..."}`.
+
+| Call | Does | Answers |
+| --- | --- | --- |
+| `POST /api/links` with `{"url": "...", "name": "ferien"}` (`name` optional) | Creates a link; without `name`, a random code | `201` created, `200` existing generated code for the same URL, `400` invalid URL or name, `409` name taken |
+| `GET /api/links` | Every link, newest first | `200` |
+| `GET /api/links/{code}` | One link | `200`, `404` |
+| `DELETE /api/links/{code}` | Deletes a link | `204`, `404` |
+
+A link is:
+
+```json
+{"code": "k3P9qa", "short_url": "https://hypr.sh/x/k3P9qa", "url": "https://example.com/...", "created_at": "2026-10-07T08:00:00Z"}
+```
+
+shrt also serves, without a token:
+
+- `GET /x/{code}`: `302` to the link's URL, `404` if unknown.
+- `GET /healthz`: `200` when the database is reachable, for monitoring.
+
+The listen address, port, base URL for `short_url` and the path of the token
+file come from environment variables, set by nixos-config.
 
 ## Out of scope
 
