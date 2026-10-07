@@ -26,6 +26,7 @@ proxy in `modules/services/proxy-external.nix`.
 | 5 | Codes are 6 random base62 characters by default; navi may pass a chosen name (`a-z 0-9 -`) instead, and a taken name is an error. | [0004](adr/0004-random-codes-optional-names.md) |
 | 6 | Links live in one SQLite file (`modernc.org/sqlite`, no cgo) in the service's state directory on `server`, persisted under `/persist`. | [0002](adr/0002-go-built-by-nix.md) |
 | 7 | shrt does no backups of its own. Losing `/persist` loses the links, which is accepted. Snapshots or backups of all of `/persist` belong in nixos-config, as separate work. | |
+| 8 | One API token: 32 random bytes in sops (`secrets/server.yaml`, `shrt/api-token`), read by shrt via systemd `LoadCredential`, held by navi as `SHRT_TOKEN` and sent as `Authorization: Bearer`. shrt compares it in constant time and refuses every API call when no token is configured. Rotation means updating both places. | |
 
 ## Out of scope
 
@@ -33,6 +34,5 @@ proxy in `modules/services/proxy-external.nix`.
 
 ## Open questions
 
-- Auth token handling
 - What `hypr.sh/` itself serves (today: nothing, catch-all 404)
 - Link lifetime, duplicates, URL validation
