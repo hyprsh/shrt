@@ -24,9 +24,11 @@ proxy in `modules/services/proxy-external.nix`.
 | 3 | Go, built by Nix (`buildGoModule`) as a flake input of nixos-config, run as a native systemd service. | [0002](adr/0002-go-built-by-nix.md) |
 | 4 | The API is LAN-only at `shrt.internal.hypr.sh` (`proxyInternal`) plus a bearer token. The public `hypr.sh` vhost forwards only `GET /x/<code>`. | [0003](adr/0003-public-redirect-lan-only-api.md) |
 | 5 | Codes are 6 random base62 characters by default; navi may pass a chosen name (`a-z 0-9 -`) instead, and a taken name is an error. | [0004](adr/0004-random-codes-optional-names.md) |
+| 6 | Links live in one SQLite file (`modernc.org/sqlite`, no cgo) in the service's state directory on `server`, persisted under `/persist`. | [0002](adr/0002-go-built-by-nix.md) |
 
 ## Open questions
 
-- Storage, auth token handling
+- Auth token handling
+- Backups: `/persist` on `server` is a ZFS mirror (`data/persist`) with no snapshots or off-host backup configured in nixos-config
 - What `hypr.sh/` itself serves (today: nothing, catch-all 404)
 - Link lifetime, duplicates, URL validation
