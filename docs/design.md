@@ -23,10 +23,10 @@ proxy in `modules/services/proxy-external.nix`.
 | 2 | Short links are shared with anyone, so the redirect `https://hypr.sh/x/<code>` is reachable from the internet. | [0003](adr/0003-public-redirect-lan-only-api.md) |
 | 3 | Go, built by Nix (`buildGoModule`) as a flake input of nixos-config, run as a native systemd service. | [0002](adr/0002-go-built-by-nix.md) |
 | 4 | The API is LAN-only at `shrt.internal.hypr.sh` (`proxyInternal`) plus a bearer token. The public `hypr.sh` vhost forwards only `GET /x/<code>`. | [0003](adr/0003-public-redirect-lan-only-api.md) |
+| 5 | Codes are 6 random base62 characters by default; navi may pass a chosen name (`a-z 0-9 -`) instead, and a taken name is an error. | [0004](adr/0004-random-codes-optional-names.md) |
 
 ## Open questions
 
-- Code format (generated vs. chosen, length, alphabet)
 - Storage, auth token handling
 - What `hypr.sh/` itself serves (today: nothing, catch-all 404)
 - Link lifetime, duplicates, URL validation
