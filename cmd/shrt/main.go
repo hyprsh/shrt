@@ -1,10 +1,11 @@
 // Command shrt serves the hypr.sh URL shortener. It is configured through
-// environment variables; see shrt.Config.
+// environment variables; see shrt.Config. `shrt health` checks a running shrt.
 package main
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,20 +16,47 @@ import (
 	"github.com/hyprsh/shrt"
 )
 
+// version is set from the release tag at build time, with
+// -ldflags "-X main.version=1.2.3".
+var version = "dev"
+
 func main() {
-	if err := run(); err != nil {
+	var err error
+	switch {
+	case len(os.Args) == 1:
+		err = run()
+	case len(os.Args) == 2 && os.Args[1] == "health":
+		err = health()
+	default:
+		fmt.Fprintln(os.Stderr, "usage: shrt [health]")
+		os.Exit(2)
+	}
+	if err != nil {
 		slog.Error("shrt stopped", "err", err)
 		os.Exit(1)
 	}
 }
 
+// health checks the shrt that the environment configures, for a container
+// health check: it exits 0 when /healthz answers 200 and 1 otherwise.
+func health() error {
+	cfg, err := shrt.ConfigFromEnv(os.Getenv)
+	if err != nil {
+		return err
+	}
+	return shrt.CheckHealth(context.Background(), cfg.Addr)
+}
+
 func run() error {
+	if err := shrt.CheckEnv(os.Environ()); err != nil {
+		return err
+	}
 	cfg, err := shrt.ConfigFromEnv(os.Getenv)
 	if err != nil {
 		return err
 	}
 	if cfg.Token == "" {
-		slog.Warn("no API token configured, so every API call is refused; set SHRT_TOKEN_FILE")
+		slog.Warn("no API token configured, so every API call is refused; set SHRT_TOKEN or SHRT_TOKEN_FILE")
 	}
 
 	store, err := shrt.OpenStore(cfg.DBPath)
@@ -51,7 +79,7 @@ func run() error {
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	slog.Info("listening", "addr", cfg.Addr, "base_url", cfg.BaseURL, "db", cfg.DBPath)
+	slog.Info("listening", "version", version, "addr", cfg.Addr, "base_url", cfg.BaseURL, "db", cfg.DBPath)
 
 	select {
 	case err := <-errc:
