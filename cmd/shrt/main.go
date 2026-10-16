@@ -21,30 +21,27 @@ import (
 var version = "dev"
 
 func main() {
-	var err error
 	switch {
 	case len(os.Args) == 1:
-		err = run()
+		if err := run(); err != nil {
+			slog.Error("shrt stopped", "err", err)
+			os.Exit(1)
+		}
 	case len(os.Args) == 2 && os.Args[1] == "health":
-		err = health()
+		if err := health(); err != nil {
+			slog.Error("health check failed", "err", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "usage: shrt [health]")
 		os.Exit(2)
 	}
-	if err != nil {
-		slog.Error("shrt stopped", "err", err)
-		os.Exit(1)
-	}
 }
 
-// health checks the shrt that the environment configures, for a container
-// health check: it exits 0 when /healthz answers 200 and 1 otherwise.
+// health checks the shrt at SHRT_ADDRESS and SHRT_PORT, for a container health
+// check: it exits 0 when /healthz answers 200 and 1 otherwise.
 func health() error {
-	cfg, err := shrt.ConfigFromEnv(os.Getenv)
-	if err != nil {
-		return err
-	}
-	return shrt.CheckHealth(context.Background(), cfg.Addr)
+	return shrt.CheckHealthFromEnv(context.Background(), os.Getenv)
 }
 
 func run() error {

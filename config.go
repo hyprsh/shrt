@@ -30,17 +30,11 @@ type Config struct {
 
 // ConfigFromEnv reads the configuration through getenv, such as os.Getenv.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
-	get := func(key, fallback string) string {
-		if v := getenv(key); v != "" {
-			return v
-		}
-		return fallback
+	host, port, err := listenFromEnv(getenv)
+	if err != nil {
+		return Config{}, err
 	}
-
-	port := get("SHRT_PORT", "8080")
-	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-		return Config{}, fmt.Errorf("SHRT_PORT %q is not a port number", port)
-	}
+	get := envDefault(getenv)
 
 	baseURL, err := parseBaseURL(get("SHRT_BASE_URL", "https://sh.hypr.sh"))
 	if err != nil {
@@ -53,11 +47,33 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 	}
 
 	return Config{
-		Addr:    net.JoinHostPort(get("SHRT_ADDRESS", "127.0.0.1"), port),
+		Addr:    net.JoinHostPort(host, port),
 		BaseURL: baseURL,
 		Token:   token,
 		DBPath:  get("SHRT_DB_PATH", "shrt.db"),
 	}, nil
+}
+
+// envDefault returns a lookup of key through getenv that gives fallback for an
+// unset or empty variable.
+func envDefault(getenv func(string) string) func(key, fallback string) string {
+	return func(key, fallback string) string {
+		if v := getenv(key); v != "" {
+			return v
+		}
+		return fallback
+	}
+}
+
+// listenFromEnv reads SHRT_ADDRESS and SHRT_PORT with their defaults, for
+// both the server and `shrt health`.
+func listenFromEnv(getenv func(string) string) (host, port string, err error) {
+	get := envDefault(getenv)
+	port = get("SHRT_PORT", "8080")
+	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+		return "", "", fmt.Errorf("SHRT_PORT %q is not a port number", port)
+	}
+	return get("SHRT_ADDRESS", "127.0.0.1"), port, nil
 }
 
 // envVars are the SHRT_* variables shrt reads.
