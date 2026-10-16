@@ -12,9 +12,9 @@ shorten a URL.
 ## Deployment
 
 Runs on `cloud` as the `shrt` Stack of hyprsh/cloud: a Compose service from the
-image `ghcr.io/hyprsh/shrt` behind tnl's Edge, on the one host
-`sh.hypr.sh`. hyprsh/cloud pins the image by tag and digest and updates it
-through Renovate; `hyprsh apply` deploys.
+image `ghcr.io/hyprsh/shrt` behind tnl's Edge, on the one host `sh.hypr.sh`.
+hyprsh/cloud pins the image by tag and digest and updates it through Renovate;
+`hyprsh apply` deploys.
 
 ## Decisions
 
