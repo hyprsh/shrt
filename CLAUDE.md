@@ -1,6 +1,6 @@
 # shrt
 
-URL shortener for the hypr.sh homelab, served under https://hypr.sh/x/. The design lives in `docs/design.md`, the decisions in `docs/adr/`.
+URL shortener for the hypr.sh homelab, served at `https://sh.hypr.sh/<code>`. The design lives in `docs/design.md`, the decisions in `docs/adr/`.
 
 ## Agent skills
 
