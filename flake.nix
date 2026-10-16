@@ -31,6 +31,9 @@
           # Update when go.mod or go.sum change; a wrong hash fails the build
           # and prints the right one.
           vendorHash = "sha256-7IC/p5GlD2EZkDXQzkaZ7E19S/ABKEBsg68vt8pykis=";
+          # The release command is for Autopilot, not the package, and its
+          # tests need git, which the build sandbox lacks.
+          excludedPackages = [ "cmd/release" ];
           env.CGO_ENABLED = "0";
           ldflags = [
             "-s"
