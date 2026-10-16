@@ -13,7 +13,7 @@ import (
 
 const (
 	testToken   = "s3cret-token"
-	testBaseURL = "https://hypr.sh"
+	testBaseURL = "https://sh.hypr.sh"
 )
 
 var testNow = time.Date(2026, 10, 7, 8, 0, 0, 0, time.UTC)
@@ -131,7 +131,7 @@ func TestCreateLink(t *testing.T) {
 		}
 		want := map[string]string{
 			"code":       got["code"],
-			"short_url":  "https://hypr.sh/x/" + got["code"],
+			"short_url":  "https://sh.hypr.sh/" + got["code"],
 			"url":        url,
 			"created_at": "2026-10-07T08:00:00Z",
 		}
@@ -153,7 +153,7 @@ func TestCreateLinkShortURLUsesBaseURL(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	link := create(t, ts, "https://example.com")
-	if want := "http://localhost:8080/x/" + link.Code; link.ShortURL != want {
+	if want := "http://localhost:8080/" + link.Code; link.ShortURL != want {
 		t.Errorf("short_url %q, want %q", link.ShortURL, want)
 	}
 }
@@ -177,7 +177,7 @@ func TestCreateLinkDrawsAgainOnCollision(t *testing.T) {
 	}
 
 	// The first link is untouched by the collision.
-	resp := do(t, "GET", ts.URL+"/x/aaaaaa", "", "")
+	resp := do(t, "GET", ts.URL+"/aaaaaa", "", "")
 	if got := resp.Header.Get("Location"); got != "https://example.com/first" {
 		t.Errorf("Location %q, want https://example.com/first", got)
 	}
@@ -221,16 +221,16 @@ func TestCreateLinkWithName(t *testing.T) {
 		link := createNamed(t, ts, "https://example.com/"+name, name)
 		want := Link{
 			Code:      name,
-			ShortURL:  "https://hypr.sh/x/" + name,
+			ShortURL:  "https://sh.hypr.sh/" + name,
 			URL:       "https://example.com/" + name,
 			CreatedAt: testNow,
 		}
 		if link != want {
 			t.Errorf("link %+v, want %+v", link, want)
 		}
-		resp := do(t, "GET", ts.URL+"/x/"+name, "", "")
+		resp := do(t, "GET", ts.URL+"/"+name, "", "")
 		if got := resp.Header.Get("Location"); resp.StatusCode != http.StatusFound || got != want.URL {
-			t.Errorf("/x/%s: status %d, Location %q; want 302 to %q", name, resp.StatusCode, got, want.URL)
+			t.Errorf("/%s: status %d, Location %q; want 302 to %q", name, resp.StatusCode, got, want.URL)
 		}
 	}
 }
@@ -286,9 +286,9 @@ func TestCreateLinkNameTaken(t *testing.T) {
 		"ferien": "https://example.com/first",
 		"abcdef": "https://example.com/generated",
 	} {
-		resp := do(t, "GET", ts.URL+"/x/"+code, "", "")
+		resp := do(t, "GET", ts.URL+"/"+code, "", "")
 		if got := resp.Header.Get("Location"); got != want {
-			t.Errorf("/x/%s: Location %q, want %q", code, got, want)
+			t.Errorf("/%s: Location %q, want %q", code, got, want)
 		}
 	}
 }
@@ -357,19 +357,19 @@ func TestCreateLinkRejectsURLsToItself(t *testing.T) {
 	ts, _ := newTestServer(t, testToken)
 
 	for _, url := range []string{
-		"https://hypr.sh/x/k3P9qa",
-		"http://hypr.sh/x/k3P9qa",
-		"https://HYPR.sh/x/k3P9qa",
-		"https://hypr.sh./x/k3P9qa",
-		"https://hypr.sh:443/x/k3P9qa",
-		"https://user@hypr.sh/x/k3P9qa",
-		"https://hypr.sh/x/k3P9qa?q=1#frag",
-		"https://hypr.sh/x/",
-		"https://hypr.sh/x",
-		"https://hypr.sh//x/k3P9qa",
-		"https://hypr.sh/%78/k3P9qa",
-		"https://hypr.sh/a/../x/k3P9qa",
-		"https://hypr.sh/./x/k3P9qa",
+		"https://sh.hypr.sh/k3P9qa",
+		"http://sh.hypr.sh/k3P9qa",
+		"https://SH.hypr.sh/k3P9qa",
+		"https://sh.hypr.sh./k3P9qa",
+		"https://sh.hypr.sh:443/k3P9qa",
+		"https://user@sh.hypr.sh/k3P9qa",
+		"https://sh.hypr.sh/k3P9qa?q=1#frag",
+		"https://sh.hypr.sh",
+		"https://sh.hypr.sh/",
+		"https://sh.hypr.sh/api/links",
+		"https://sh.hypr.sh/healthz",
+		"https://sh.hypr.sh/a/b/c",
+		"https://sh.hypr.sh/x/k3P9qa",
 	} {
 		t.Run(url, func(t *testing.T) {
 			resp := post(t, ts, `{"url": "`+url+`"}`)
@@ -378,13 +378,12 @@ func TestCreateLinkRejectsURLsToItself(t *testing.T) {
 	}
 
 	for _, url := range []string{
-		"https://hypr.sh",
-		"https://hypr.sh/",
-		"https://hypr.sh/xy/k3P9qa",
-		"https://hypr.sh/docs/x/k3P9qa",
-		"https://www.hypr.sh/x/k3P9qa",
+		"https://hypr.sh/x/k3P9qa",
+		"https://www.sh.hypr.sh/k3P9qa",
+		"https://xsh.hypr.sh/k3P9qa",
 		"https://shrt.internal.hypr.sh/api/links",
-		"https://example.com/x/k3P9qa",
+		"https://example.com/k3P9qa",
+		"https://example.com/sh.hypr.sh",
 	} {
 		resp := post(t, ts, `{"url": "`+url+`"}`)
 		if resp.StatusCode != http.StatusCreated {
@@ -398,9 +397,19 @@ func TestCreateLinkRejectsURLsToItselfUnderBasePath(t *testing.T) {
 	ts := httptest.NewServer(NewServer(store, "http://localhost:8080/shrt", testToken))
 	t.Cleanup(ts.Close)
 
-	resp := post(t, ts, `{"url": "http://localhost:8080/shrt/x/k3P9qa"}`)
-	wantError(t, resp, http.StatusBadRequest)
-	create(t, ts, "http://localhost:8080/x/k3P9qa")
+	for _, url := range []string{"http://localhost:8080/shrt/k3P9qa", "http://localhost:8080/k3P9qa"} {
+		wantError(t, post(t, ts, `{"url": "`+url+`"}`), http.StatusBadRequest)
+	}
+}
+
+func TestCreateLinkRejectsReservedNames(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+
+	for _, name := range []string{"api", "healthz"} {
+		resp := post(t, ts, `{"url": "https://example.com", "name": "`+name+`"}`)
+		wantError(t, resp, http.StatusBadRequest)
+	}
+	createNamed(t, ts, "https://example.com", "apis")
 }
 
 func TestCreateLinkRejectsLargeBody(t *testing.T) {
@@ -467,7 +476,7 @@ func TestRedirect(t *testing.T) {
 	link := create(t, ts, "https://example.com/some/page?q=1&r=2#frag")
 
 	for _, method := range []string{"GET", "HEAD"} {
-		resp := do(t, method, ts.URL+"/x/"+link.Code, "", "")
+		resp := do(t, method, ts.URL+"/"+link.Code, "", "")
 		if resp.StatusCode != http.StatusFound {
 			t.Errorf("%s: status %d, want 302", method, resp.StatusCode)
 		}
@@ -477,12 +486,22 @@ func TestRedirect(t *testing.T) {
 	}
 }
 
+func TestRedirectLeavesOldPathUnserved(t *testing.T) {
+	ts, _ := newTestServer(t, testToken)
+	link := create(t, ts, "https://example.com")
+
+	resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", "")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status %d, want 404", resp.StatusCode)
+	}
+}
+
 func TestRedirectIsCaseSensitive(t *testing.T) {
 	ts, srv := newTestServer(t, testToken)
 	srv.newCode = func() string { return "AbCdEf" }
 	create(t, ts, "https://example.com")
 
-	resp := do(t, "GET", ts.URL+"/x/abcdef", "", "")
+	resp := do(t, "GET", ts.URL+"/abcdef", "", "")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("status %d, want 404", resp.StatusCode)
 	}
@@ -491,7 +510,7 @@ func TestRedirectIsCaseSensitive(t *testing.T) {
 func TestRedirectUnknownCodeIsPlainNotFound(t *testing.T) {
 	ts, _ := newTestServer(t, testToken)
 
-	for _, path := range []string{"/x/nope00", "/x/", "/x/a/b"} {
+	for _, path := range []string{"/nope00", "/", "/a/b", "/x/nope00"} {
 		resp := do(t, "GET", ts.URL+path, "", "")
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("%s: status %d, want 404", path, resp.StatusCode)
@@ -520,7 +539,7 @@ func TestLinksSurviveRestart(t *testing.T) {
 	}
 
 	ts, _ = serveStore(t, openTestStore(t, path), testToken)
-	resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", "")
+	resp := do(t, "GET", ts.URL+"/"+link.Code, "", "")
 	if resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != link.URL {
 		t.Errorf("after restart: status %d, Location %q; want 302 to %q",
 			resp.StatusCode, resp.Header.Get("Location"), link.URL)
@@ -573,7 +592,7 @@ func TestListLinksNewestFirst(t *testing.T) {
 	for i, code := range want {
 		entry := map[string]string{
 			"code":       code,
-			"short_url":  "https://hypr.sh/x/" + code,
+			"short_url":  "https://sh.hypr.sh/" + code,
 			"url":        "https://example.com/" + code,
 			"created_at": created[code].Format(time.RFC3339),
 		}
@@ -636,7 +655,7 @@ func TestDeleteLink(t *testing.T) {
 		t.Errorf("body %q, want none", body)
 	}
 
-	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusNotFound {
+	if resp := do(t, "GET", ts.URL+"/"+link.Code, "", ""); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("redirect after delete: status %d, want 404", resp.StatusCode)
 	}
 	if resp := do(t, "GET", ts.URL+"/api/links/"+link.Code, "Bearer "+testToken, ""); resp.StatusCode != http.StatusNotFound {
@@ -654,7 +673,7 @@ func TestDeleteLink(t *testing.T) {
 	if again.Code != link.Code {
 		t.Errorf("code %q, want %q", again.Code, link.Code)
 	}
-	resp = do(t, "GET", ts.URL+"/x/"+link.Code, "", "")
+	resp = do(t, "GET", ts.URL+"/"+link.Code, "", "")
 	if got := resp.Header.Get("Location"); got != "https://example.com/second" {
 		t.Errorf("Location %q, want https://example.com/second", got)
 	}
@@ -669,7 +688,7 @@ func TestDeletedNameCanBeChosenAgain(t *testing.T) {
 		t.Fatalf("delete: status %d, want 204", resp.StatusCode)
 	}
 	createNamed(t, ts, "https://example.com/second", "ferien")
-	resp = do(t, "GET", ts.URL+"/x/ferien", "", "")
+	resp = do(t, "GET", ts.URL+"/ferien", "", "")
 	if got := resp.Header.Get("Location"); got != "https://example.com/second" {
 		t.Errorf("Location %q, want https://example.com/second", got)
 	}
@@ -704,7 +723,7 @@ func TestDeleteLinkKeepsOthers(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete: status %d, want 204", resp.StatusCode)
 	}
-	resp = do(t, "GET", ts.URL+"/x/"+keep.Code, "", "")
+	resp = do(t, "GET", ts.URL+"/"+keep.Code, "", "")
 	if resp.StatusCode != http.StatusFound {
 		t.Errorf("status %d, want 302", resp.StatusCode)
 	}
@@ -719,7 +738,7 @@ func TestDeleteLinkUnknownIsNotFound(t *testing.T) {
 		resp := do(t, "DELETE", ts.URL+"/api/links/"+code, "Bearer "+testToken, "")
 		wantError(t, resp, http.StatusNotFound)
 	}
-	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
+	if resp := do(t, "GET", ts.URL+"/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
 		t.Errorf("redirect: status %d, want 302", resp.StatusCode)
 	}
 }
@@ -736,7 +755,7 @@ func TestListShowDeleteRefuseMissingOrWrongToken(t *testing.T) {
 		}
 	}
 	// The refused delete left the link in place.
-	if resp := do(t, "GET", ts.URL+"/x/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
+	if resp := do(t, "GET", ts.URL+"/"+link.Code, "", ""); resp.StatusCode != http.StatusFound {
 		t.Errorf("redirect: status %d, want 302", resp.StatusCode)
 	}
 }

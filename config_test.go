@@ -15,7 +15,7 @@ func TestConfigFromEnvDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Config{Addr: "127.0.0.1:8080", BaseURL: "https://hypr.sh", DBPath: "shrt.db"}
+	want := Config{Addr: "127.0.0.1:8080", BaseURL: "https://sh.hypr.sh", DBPath: "shrt.db"}
 	if cfg != want {
 		t.Errorf("config %+v, want %+v", cfg, want)
 	}

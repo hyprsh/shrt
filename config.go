@@ -16,8 +16,8 @@ type Config struct {
 	// Addr is the host:port to listen on, from SHRT_ADDRESS (default
 	// 127.0.0.1) and SHRT_PORT (default 8080).
 	Addr string
-	// BaseURL prefixes /x/<code> in a link's short_url, from SHRT_BASE_URL
-	// (default https://hypr.sh), without a trailing slash.
+	// BaseURL prefixes /<code> in a link's short_url, from SHRT_BASE_URL
+	// (default https://sh.hypr.sh), without a trailing slash.
 	BaseURL string
 	// Token is the API bearer token, read from the file SHRT_TOKEN_FILE
 	// names, as systemd's LoadCredential provides it. Empty when the
@@ -42,7 +42,7 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("SHRT_PORT %q is not a port number", port)
 	}
 
-	baseURL, err := parseBaseURL(get("SHRT_BASE_URL", "https://hypr.sh"))
+	baseURL, err := parseBaseURL(get("SHRT_BASE_URL", "https://sh.hypr.sh"))
 	if err != nil {
 		return Config{}, fmt.Errorf("SHRT_BASE_URL: %w", err)
 	}

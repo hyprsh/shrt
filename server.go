@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -38,13 +37,17 @@ const maxURLLength = 2048
 // maxNameLength bounds a chosen name, in characters.
 const maxNameLength = 64
 
+// reservedNames are the names no link may take, because shrt serves a path
+// of that name itself (ADR 0005). Any new top-level path shrt serves must
+// join this list.
+var reservedNames = map[string]bool{"api": true, "healthz": true}
+
 // Server serves shrt's HTTP API, redirect and health check.
 type Server struct {
 	store   *Store
 	baseURL string
-	// selfHost and selfPath are baseURL's host and path, which a link's
-	// URL may not point back into.
-	selfHost, selfPath string
+	// selfHost is baseURL's host, which a link's URL may not point to.
+	selfHost string
 	// tokenHash is the SHA-256 of the API token, so that comparing it
 	// takes the same time whatever the length of the token presented.
 	tokenHash [sha256.Size]byte
@@ -56,7 +59,7 @@ type Server struct {
 }
 
 // NewServer serves the links in store. baseURL, without a trailing slash,
-// prefixes /x/<code> in a link's short_url. With an empty token, every API
+// prefixes /<code> in a link's short_url. With an empty token, every API
 // call is refused.
 func NewServer(store *Store, baseURL, token string) *Server {
 	// ConfigFromEnv checked baseURL, so an error leaves only links into
@@ -69,7 +72,6 @@ func NewServer(store *Store, baseURL, token string) *Server {
 		store:     store,
 		baseURL:   baseURL,
 		selfHost:  normalHost(self.Hostname()),
-		selfPath:  strings.TrimRight(self.Path, "/"),
 		tokenHash: sha256.Sum256([]byte(token)),
 		hasToken:  token != "",
 		mux:       http.NewServeMux(),
@@ -89,7 +91,7 @@ func NewServer(store *Store, baseURL, token string) *Server {
 	})
 	s.mux.Handle("/api/", s.requireToken(api))
 
-	s.mux.HandleFunc("GET /x/{code}", s.redirect)
+	s.mux.HandleFunc("GET /{code}", s.redirect)
 	s.mux.HandleFunc("GET /healthz", s.healthz)
 	return s
 }
@@ -181,7 +183,7 @@ func (s *Server) createLink(w http.ResponseWriter, r *http.Request) {
 // invalid or taken (ADR 0004). A name always makes its own link, even for
 // a URL that already has one (decision 10).
 func (s *Server) createNamed(w http.ResponseWriter, r *http.Request, link Link, name string) {
-	if !validName(name) {
+	if !validName(name) || reservedNames[name] {
 		writeError(w, http.StatusBadRequest,
 			fmt.Sprintf("name must be 1 to %d characters of a-z, 0-9 and -", maxNameLength))
 		return
@@ -212,8 +214,8 @@ func validName(name string) bool {
 }
 
 // checkURL accepts only absolute http:// and https:// URLs of at most
-// maxURLLength characters that don't point back into shrt's own /x/
-// (decision 11).
+// maxURLLength characters that don't point to shrt's own host, where every
+// path belongs to shrt (decision 11).
 func (s *Server) checkURL(raw string) error {
 	if raw == "" {
 		return errors.New("url is required")
@@ -225,21 +227,10 @@ func (s *Server) checkURL(raw string) error {
 	if err != nil || !isAbsoluteHTTPURL(u) {
 		return errors.New("url must be an absolute http:// or https:// URL")
 	}
-	if s.isShortLink(u) {
-		return errors.New("url points to a short link of shrt itself")
+	if normalHost(u.Hostname()) == s.selfHost {
+		return errors.New("url points to shrt itself")
 	}
 	return nil
-}
-
-// isShortLink reports whether u leads to shrt's /x/, whatever its scheme
-// and port, and with its path cleaned as nginx and browsers clean it.
-func (s *Server) isShortLink(u *url.URL) bool {
-	if normalHost(u.Hostname()) != s.selfHost {
-		return false
-	}
-	p := path.Clean("/" + u.Path)
-	x := s.selfPath + "/x"
-	return p == x || strings.HasPrefix(p, x+"/")
 }
 
 // normalHost lowercases host and drops the dot that ends a fully qualified
@@ -292,7 +283,7 @@ func (s *Server) deleteLink(w http.ResponseWriter, r *http.Request) {
 
 // present fills in the short_url that the store doesn't keep.
 func (s *Server) present(link Link) Link {
-	link.ShortURL = s.baseURL + "/x/" + link.Code
+	link.ShortURL = s.baseURL + "/" + link.Code
 	return link
 }
 
