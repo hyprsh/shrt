@@ -16,6 +16,10 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
-### Autopilot
+## Check, commits and releases
 
-Install with `go mod download`, check with gofmt, `go vet` and `go test`; Autopilot cuts releases (`go run ./cmd/release`; the tag is the version), and deploys stay in nixos-config. Every ticket filed for Autopilot gets exactly one tier label, which sets the model and effort its session runs at: `opus-xhigh` for hard or wide-reaching tickets, `opus-high` for most, `sonnet-high` for mechanical ones (renames, docs, small fixes). After filing `ready-for-agent` tickets, the next step is `/hyprsh-skills:autopilot`. See `docs/agents/autopilot.md`.
+Check with `test -z "$(gofmt -l .)"`, `go vet ./...` and `go test ./...`.
+
+Commits are Conventional, `type(scope)!: subject`, and the scope is required: one of `api`, `redirect`, `store`, `config`, `codes`, `nix`, `docs`, `deps` or `release`, since the release notes are built from them. A breaking change gets `!` and a `BREAKING CHANGE:` footer saying what upgrading needs. A ticket's last commit has `Closes #N` in its footer, and each of its commits before that `Refs #N`.
+
+Release with `go run ./cmd/release` from a detached HEAD at `origin/main`. It tags the next `vX.Y.Z` (on 0.x a `feat` or a breaking change bumps the minor, anything else the patch; the first is `v0.1.0`), pushes the tag and makes the GitHub release. The tag is the version: there is no version file. Releasing deploys nothing.

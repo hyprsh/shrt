@@ -1,9 +1,8 @@
-// Command release cuts a release of shrt, as Autopilot's Release section
-// says: it works the version out from the Conventional Commits since the
-// last v* tag, tags HEAD, pushes the tag and makes the GitHub release with
-// notes in the format every hyprsh repo's releases share. Run it from a
-// detached HEAD at origin/main. It writes no version file: the tag is the
-// version.
+// Command release cuts a release of shrt: it works the version out from
+// the Conventional Commits since the last v* tag, tags HEAD, pushes the tag
+// and makes the GitHub release with notes in the format every hyprsh repo's
+// releases share. Run it from a detached HEAD at origin/main. It writes no
+// version file: the tag is the version.
 package main
 
 import (

@@ -21,8 +21,8 @@ func git(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// A checkout of a local bare remote, at a detached HEAD on main, as
-// Autopilot releases from.
+// A checkout of a local bare remote, at a detached HEAD on main, where
+// releases are cut from.
 func newCheckout(t *testing.T) (dir, remote string) {
 	t.Helper()
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
