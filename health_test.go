@@ -11,7 +11,7 @@ import (
 func TestCheckHealthAgainstARunningShrt(t *testing.T) {
 	ts, _ := newTestServer(t, testToken)
 	u, _ := url.Parse(ts.URL)
-	if err := CheckHealth(context.Background(), u.Hostname(), u.Port()); err != nil {
+	if err := checkHealth(context.Background(), u.Hostname(), u.Port()); err != nil {
 		t.Errorf("health: %v", err)
 	}
 }
@@ -20,7 +20,7 @@ func TestCheckHealthFailsOnAnythingButOK(t *testing.T) {
 	ts := httptest.NewServer(http.NotFoundHandler())
 	defer ts.Close()
 	u, _ := url.Parse(ts.URL)
-	if err := CheckHealth(context.Background(), u.Hostname(), u.Port()); err == nil {
+	if err := checkHealth(context.Background(), u.Hostname(), u.Port()); err == nil {
 		t.Error("health succeeded on a 404")
 	}
 }
@@ -29,7 +29,7 @@ func TestCheckHealthFailsWhenNothingAnswers(t *testing.T) {
 	ts := httptest.NewServer(http.NotFoundHandler())
 	u, _ := url.Parse(ts.URL)
 	ts.Close()
-	if err := CheckHealth(context.Background(), u.Hostname(), u.Port()); err == nil {
+	if err := checkHealth(context.Background(), u.Hostname(), u.Port()); err == nil {
 		t.Error("health succeeded with nothing listening")
 	}
 }

@@ -17,13 +17,13 @@ func CheckHealthFromEnv(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
-	return CheckHealth(ctx, host, port)
+	return checkHealth(ctx, host, port)
 }
 
-// CheckHealth calls /healthz on the shrt listening on host and port and
+// checkHealth calls /healthz on the shrt listening on host and port and
 // returns nil on a 200. The image has no shell or curl for a container health
 // check, so `shrt health` does it.
-func CheckHealth(ctx context.Context, host, port string) error {
+func checkHealth(ctx context.Context, host, port string) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL(host, port), nil)
