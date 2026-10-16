@@ -3,6 +3,7 @@ package shrt
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -48,17 +49,51 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 }
 
-func TestConfigFromEnvEmptyTokenFileMeansNoToken(t *testing.T) {
+func TestConfigFromEnvTokenDirectly(t *testing.T) {
+	cfg, err := ConfigFromEnv(env(map[string]string{"SHRT_TOKEN": " s3cret\n"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Token != "s3cret" {
+		t.Errorf("token %q, want s3cret", cfg.Token)
+	}
+}
+
+func TestConfigFromEnvBothTokensIsAnError(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "api-token")
+	if err := os.WriteFile(tokenFile, []byte("s3cret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ConfigFromEnv(env(map[string]string{"SHRT_TOKEN": "x", "SHRT_TOKEN_FILE": tokenFile}))
+	if err == nil || !strings.Contains(err.Error(), "one way") {
+		t.Errorf("error %v, want one saying to give the token one way", err)
+	}
+}
+
+func TestConfigFromEnvEmptyTokenFileIsAnError(t *testing.T) {
 	tokenFile := filepath.Join(t.TempDir(), "api-token")
 	if err := os.WriteFile(tokenFile, []byte(" \n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := ConfigFromEnv(env(map[string]string{"SHRT_TOKEN_FILE": tokenFile}))
-	if err != nil {
-		t.Fatal(err)
+	_, err := ConfigFromEnv(env(map[string]string{"SHRT_TOKEN_FILE": tokenFile}))
+	if err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error %v, want one saying the file is empty", err)
 	}
-	if cfg.Token != "" {
-		t.Errorf("token %q, want none", cfg.Token)
+}
+
+func TestCheckEnv(t *testing.T) {
+	known := []string{"SHRT_ADDRESS=0.0.0.0", "SHRT_PORT=8080", "SHRT_BASE_URL=https://x", "SHRT_TOKEN=a", "SHRT_TOKEN_FILE=/f", "SHRT_DB_PATH=/db", "PATH=/bin", "SHRTX=1"}
+	if err := CheckEnv(known); err != nil {
+		t.Errorf("known variables: %v", err)
+	}
+	err := CheckEnv(append(known, "SHRT_TOKEN_FIEL=/f", "SHRT_PROT=1"))
+	if err == nil {
+		t.Fatal("want an error for unknown variables")
+	}
+	for _, name := range []string{"SHRT_TOKEN_FIEL", "SHRT_PROT"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("error %q does not name %s", err, name)
+		}
 	}
 }
 
