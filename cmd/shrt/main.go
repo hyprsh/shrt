@@ -28,7 +28,7 @@ func main() {
 			os.Exit(1)
 		}
 	case len(os.Args) == 2 && os.Args[1] == "health":
-		if err := health(); err != nil {
+		if err := shrt.CheckHealthFromEnv(context.Background(), os.Getenv); err != nil {
 			slog.Error("health check failed", "err", err)
 			os.Exit(1)
 		}
@@ -36,12 +36,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: shrt [health]")
 		os.Exit(2)
 	}
-}
-
-// health checks the shrt at SHRT_ADDRESS and SHRT_PORT, for a container health
-// check: it exits 0 when /healthz answers 200 and 1 otherwise.
-func health() error {
-	return shrt.CheckHealthFromEnv(context.Background(), os.Getenv)
 }
 
 func run() error {
