@@ -18,7 +18,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/ag
 
 ## Check, commits and releases
 
-Check with `test -z "$(gofmt -l .)"`, `go vet ./...` and `go test ./...`.
+Check with `scripts/check.sh`, which runs `test -z "$(gofmt -l .)"`, `go vet ./...` and `go test ./...`; CI and the release workflow run it too.
 
 Commits are Conventional, `type(scope)!: subject`, and the scope is required: one of `api`, `redirect`, `store`, `config`, `codes`, `image` (the Dockerfile and `shrt health`), `ci` (the workflows), `docs`, `deps` or `release`, since the release notes are built from them. A breaking change gets `!` and a `BREAKING CHANGE:` footer saying what upgrading needs. A ticket's last commit has `Closes #N` in its footer, and each of its commits before that `Refs #N`.
 

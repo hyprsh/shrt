@@ -15,9 +15,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: test -z "$(gofmt -l .)"
-      - run: go vet ./...
-      - run: go test ./...
+      - run: scripts/check.sh
   image:
     # Builds the image for both platforms without pushing it, so a broken
     # Dockerfile shows up before a release does.
