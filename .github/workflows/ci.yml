@@ -15,6 +15,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # gofmt, go vet and the tests. Agents run the same script.
       - run: scripts/check.sh
   image:
     # Builds the image for both platforms without pushing it, so a broken

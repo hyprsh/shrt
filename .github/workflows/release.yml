@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # gofmt, go vet and the tests. Agents run the same script.
       - run: scripts/check.sh
       # The tag is a plain vX.Y.Z, so X.Y.Z, X.Y, X and latest are all its own.
       - id: version
