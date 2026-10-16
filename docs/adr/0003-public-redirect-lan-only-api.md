@@ -1,7 +1,7 @@
 # 3. Public redirect, LAN-only API
 
 Date: 2026-10-07
-Status: accepted
+Status: superseded by [ADR 0005](0005-links-at-the-root-public-api.md)
 
 ## Context
 

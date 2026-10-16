@@ -1,7 +1,7 @@
 # 2. Go, built and run by Nix
 
 Date: 2026-10-07
-Status: accepted
+Status: superseded by [ADR 0006](0006-container-image-no-nix.md)
 
 ## Context
 
