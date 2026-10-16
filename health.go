@@ -13,7 +13,7 @@ import (
 // SHRT_PORT (through getenv, with their defaults) name, and so needs nothing
 // else of the configuration, such as the token. It is what `shrt health` runs.
 func CheckHealthFromEnv(ctx context.Context, getenv func(string) string) error {
-	host, port, err := listenFromEnv(getenv)
+	host, port, err := listenFromEnv(envDefault(getenv))
 	if err != nil {
 		return err
 	}

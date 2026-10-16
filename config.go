@@ -30,11 +30,11 @@ type Config struct {
 
 // ConfigFromEnv reads the configuration through getenv, such as os.Getenv.
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
-	host, port, err := listenFromEnv(getenv)
+	get := envDefault(getenv)
+	host, port, err := listenFromEnv(get)
 	if err != nil {
 		return Config{}, err
 	}
-	get := envDefault(getenv)
 
 	baseURL, err := parseBaseURL(get("SHRT_BASE_URL", "https://sh.hypr.sh"))
 	if err != nil {
@@ -65,10 +65,9 @@ func envDefault(getenv func(string) string) func(key, fallback string) string {
 	}
 }
 
-// listenFromEnv reads SHRT_ADDRESS and SHRT_PORT with their defaults, for
-// both the server and `shrt health`.
-func listenFromEnv(getenv func(string) string) (host, port string, err error) {
-	get := envDefault(getenv)
+// listenFromEnv reads SHRT_ADDRESS and SHRT_PORT with their defaults through
+// get (see envDefault), for both the server and `shrt health`.
+func listenFromEnv(get func(key, fallback string) string) (host, port string, err error) {
 	port = get("SHRT_PORT", "8080")
 	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
 		return "", "", fmt.Errorf("SHRT_PORT %q is not a port number", port)
