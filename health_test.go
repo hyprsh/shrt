@@ -35,15 +35,15 @@ func TestCheckHealthFailsWhenNothingAnswers(t *testing.T) {
 }
 
 func TestHealthURLReachesLoopbackForAnUnspecifiedHost(t *testing.T) {
-	for _, c := range []struct{ host, port, want string }{
+	for _, tc := range []struct{ host, port, want string }{
 		{"0.0.0.0", "8080", "http://127.0.0.1:8080/healthz"},
 		{"::", "8080", "http://127.0.0.1:8080/healthz"},
 		{"", "8080", "http://127.0.0.1:8080/healthz"},
 		{"::1", "9123", "http://[::1]:9123/healthz"},
 		{"192.0.2.7", "8080", "http://192.0.2.7:8080/healthz"},
 	} {
-		if got := healthURL(c.host, c.port); got != c.want {
-			t.Errorf("healthURL(%q, %q) = %q, want %q", c.host, c.port, got, c.want)
+		if got := healthURL(tc.host, tc.port); got != tc.want {
+			t.Errorf("healthURL(%q, %q) = %q, want %q", tc.host, tc.port, got, tc.want)
 		}
 	}
 }
